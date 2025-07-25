@@ -540,7 +540,7 @@
         }
 
         .score-effect-text.add {
-            color: #00ff00; /* 綠色 */
+            color: #3b82f6; /* 藍色，配合加分按鈕顏色 */
         }
 
         .score-effect-text.minus {
@@ -1450,7 +1450,7 @@
                     if (amount > 0) {
                         // 找到對應的學生項目元素，並在其上觸發碎花動畫
                         // 這裡需要確保找到正確的 .score-list-item
-                        const studentDiv = document.querySelector(`.score-list-item .student-content .student-info span:first-child[data-name="${studentName}"]`)?.closest('.score-list-item');
+                        const studentDiv = document.querySelector(`.score-list-item .student-content .student-info span[data-name="${studentName}"]`)?.closest('.score-list-item');
                         if (studentDiv) {
                             triggerConfetti(studentDiv);
                         }
