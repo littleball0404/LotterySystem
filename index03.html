@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生抽籤系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 自定義字體 */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* 淺灰色背景 */
+            color: #334155; /* 深灰色文字 */
+        }
+        /* 隱藏滾動條但保持滾動功能 */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        /* 可見的滾動條樣式 */
+        .scrollbar-visible::-webkit-scrollbar {
+            width: 8px; /* 滾動條寬度 */
+        }
+        .scrollbar-visible::-webkit-scrollbar-track {
+            background: #e2e8f0; /* 滾動條軌道背景 */
+            border-radius: 10px;
+        }
+        .scrollbar-visible::-webkit-webkit-scrollbar-thumb {
+            background: #94a3b8; /* 滾動條滑塊顏色 */
+            border-radius: 10px;
+        }
+        .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* 滾動條滑塊懸停顏色 */
+        }
+
+        /* 抽籤結果的大字體樣式 */
+        .drawn-result-text {
+            font-size: 3rem; /* 放大字體 */
+            font-weight: bold;
+            color: #1a202c; /* 更深的顏色 */
+            margin-bottom: 1rem;
+            line-height: 1.2;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.3); /* 增加陰影 */
+        }
+        /* 針對多個名字的排版 */
+        .drawn-result-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem; /* 名字之間的間距 */
+        }
+        /* 抽籤動畫中的文字樣式 */
+        .spinning-text-item {
+            font-size: 5rem; /* 進一步放大動畫時的字體 */
+            font-weight: bolder;
+            color: #4f46e5; /* 藍紫色 */
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.3); /* 增加陰影效果 */
+            flex-grow: 1; /* 讓每個姓名項目彈性填充空間 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 6rem; /* 每個姓名項目的最小高度 */
+            width: 100%; /* 確保佔滿寬度 */
+            margin-bottom: 0.5rem; /* 增加垂直間距 */
+        }
+
+        /* 脈衝動畫 */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.05); opacity: 0.9; }
+        }
+
+        /* 抽籤動畫背景色變化 */
+        @keyframes color-spin {
+            0% { background-color: #f0f9ff; } /* blue-50 */
+            25% { background-color: #fffbeb; } /* yellow-50 */
+            50% { background-color: #fef2f2; } /* red-50 */
+            75% { background-color: #ecfdf5; } /* green-50 */
+            100% { background-color: #f0f9ff; }
+        }
+
+        .spinning-background {
+            animation: color-spin 2s infinite linear; /* 背景顏色動畫 */
+        }
+
+        /* 調整訊息框的最小高度以增加其大小 */
+        #messageBox .bg-white {
+            min-height: 20rem; /* 增加最小高度，約為原先的 3 倍 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 抽籤動畫中的多個姓名容器 - Flexbox 垂直堆疊 */
+        .spinning-names-flex-column {
+            display: flex;
+            flex-direction: column; /* 垂直堆疊 */
+            align-items: center; /* 水平居中 */
+            justify-content: center; /* 垂直居中 */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 頁籤樣式 */
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            color: #64748b; /* slate-500 */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer; /* 增加指標樣式 */
+        }
+        .tab-button.active {
+            border-color: #3b82f6; /* blue-500 */
+            color: #1e40af; /* blue-800 */
+        }
+        .tab-button:hover:not(.active) {
+            color: #334155; /* slate-700 */
+        }
+
+        /* 調整數字輸入框的樣式，使其箭頭看起來更大 */
+        #totalStudents {
+            padding: 0.75rem 1rem; /* 增加內邊距 */
+            font-size: 1.5rem; /* 增大字體 */
+        }
+
+        /* 名單加扣分表中的學生項目樣式 */
+        .score-list-item {
+            display: flex;
+            align-items: stretch; /* 確保子元素高度一致 */
+            padding: 0; /* 移除這裡的 padding，由內部 content 處理 */
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            width: 100%;
+            overflow: hidden; /* 確保內部元素不會溢出圓角 */
+            position: relative; /* 為了碎花動畫的定位 */
+        }
+
+        .student-content {
+            flex-grow: 1; /* 佔據大部分空間 */
+            padding: 0.75rem 1rem; /* 內容的內邊距 */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 2; /* 確保內容在 highlight bar 上方 */
+            background-color: transparent; /* 讓父級的背景色透出來 */
+            width: 80%; /* 佔據 4/5 寬度 */
+        }
+
+        .score-highlight-bar {
+            width: 20%; /* 佔據 1/5 寬度 */
+            background-color: hsl(200, 90%, 95%); /* 預設淡藍色 */
+            transition: background-color 0.3s ease-in-out; /* 即時變色效果 */
+            z-index: 1; /* 位於內容下方 */
+            flex-shrink: 0; /* 防止被壓縮 */
+            display: flex; /* 讓內容居中 */
+            justify-content: center;
+            align-items: center;
+            position: relative; /* 為了文字特效定位 */
+        }
+
+        /* 關鍵幀動畫：高亮保持10秒，然後10秒內淡出 */
+        @keyframes highlight-fade-out {
+            0% { background-color: var(--highlight-start-color); } /* 開始顏色 */
+            50% { background-color: var(--highlight-start-color); } /* 保持顏色直到 50% (10秒) */
+            100% { background-color: hsl(200, 90%, 95%); } /* 淡出到預設淡藍色 */
+        }
+
+        /* 應用高亮和動畫的類別 */
+        .score-highlight-bar.highlight-add {
+            --highlight-start-color: hsl(120, 100%, 50%); /* 更鮮豔的綠色 (飽和度100%, 亮度50%) */
+            animation: highlight-fade-out 20s forwards; /* 總共 20 秒，保持最後狀態 */
+        }
+        .score-highlight-bar.highlight-minus {
+            --highlight-start-color: hsl(0, 100%, 50%); /* 更鮮豔的紅色 (飽和度100%, 亮度50%) */
+            animation: highlight-fade-out 20s forwards; /* 總共 20 秒，保持最後狀態 */
+        }
+
+
+        .score-list-item .student-info {
+            font-weight: 500;
+            color: #1e40af; /* blue-800 */
+            margin-bottom: 0.5rem; /* 資訊與按鈕之間的間距 */
+            width: 100%; /* 確保佔滿寬度 */
+            text-align: center; /* 讓文字居中 */
+        }
+        .score-list-item .score-value {
+            font-weight: bold;
+            color: #047857; /* green-700 */
+            margin-left: 0.5rem;
+        }
+        .score-list-item .score-buttons {
+            display: flex;
+            justify-content: center; /* 按鈕居中 */
+            gap: 0.5rem;
+            width: 100%; /* 確保按鈕區塊佔滿寬度 */
+        }
+        .score-list-item .score-btn {
+            background-color: #3b82f6; /* blue-500 */
+            color: white;
+            font-weight: bold;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease-in-out;
+            min-width: 2.5rem;
+            text-align: center;
+        }
+        .score-list-item .score-btn:hover {
+            background-color: #2563eb; /* blue-600 */
+        }
+        .score-list-item .score-btn.minus {
+            background-color: #ef4444; /* red-500 */
+        }
+        .score-list-item .score-btn.minus:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+
+        /* 名單加扣分表的網格容器 */
+        #studentScoreList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* 預設自動調整，最小 200px 寬 */
+            gap: 1rem; /* 網格間距 */
+            /* 移除固定高度和內部捲軸，讓內容自動撐開 */
+            height: auto;
+            max-height: none;
+            overflow-y: visible; /* 確保不產生內部捲軸 */
+        }
+        /* 針對較小螢幕，減少列數 */
+        @media (max-width: 768px) {
+            #studentScoreList {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                height: auto;
+                max-height: none;
+            }
+        }
+        /* 針對更小螢幕，單列顯示 */
+        @media (max-width: 480px) {
+            #studentScoreList {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 排行榜列表樣式 */
+        .ranking-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            background-color: #e0f7fa; /* light cyan-100 */
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            font-size: 1.1rem;
+        }
+        .ranking-list-item .rank {
+            font-weight: bold;
+            color: #00796b; /* teal-700 */
+            margin-right: 0.5rem;
+            min-width: 2rem; /* 確保名次有足夠空間 */
+            text-align: right;
+        }
+        .ranking-list-item .student-name {
+            flex-grow: 1;
+            color: #004d40; /* teal-900 */
+        }
+        .ranking-list-item .student-score {
+            font-weight: bold;
+            color: #047857; /* green-700 */
+            margin-left: 0.5rem;
+        }
+        /* 前三名特殊樣式 */
+        .ranking-list-item.top-1 { background-color: #ffeb3b; } /* amber-300 */
+        .ranking-list-item.top-2 { background-color: #c0c0c0; } /* silver */
+        .ranking-list-item.top-3 { background-color: #cd7f32; } /* bronze */
+
+        #rankingBoardList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* 預設自動調整，最小 250px 寬 */
+            gap: 1rem; /* 網格間距 */
+            height: 64vh; /* 調整高度 */
+            max-height: 64vh;
+            overflow-y: auto; /* 保持滾動軸 */
+        }
+        @media (max-width: 768px) {
+            #rankingBoardList {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                height: 50vh;
+                max-height: 50vh;
+            }
+        }
+        @media (max-width: 480px) {
+            #rankingBoardList {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 最新抽出名單顯示樣式 */
+        #lastDrawnStudentsDisplay {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ef4444; /* red-500 */
+            margin-left: 1rem;
+            white-space: nowrap; /* 避免換行 */
+            overflow: hidden; /* 隱藏超出部分 */
+            text-overflow: ellipsis; /* 顯示省略號 */
+            flex-grow: 1; /* 讓它佔據剩餘空間 */
+            text-align: left; /* 靠左對齊 */
+        }
+
+        /* 返還按鈕樣式 */
+        .return-btn {
+            background-color: #60a5fa; /* blue-400 */
+            color: white;
+            font-weight: bold;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease-in-out;
+            min-width: 2.5rem;
+            text-align: center;
+            margin-left: 0.5rem; /* 與姓名間距 */
+        }
+        .return-btn:hover {
+            background-color: #3b82f6; /* blue-500 */
+        }
+
+        /* 刪除按鈕樣式 */
+        .delete-btn {
+            background-color: #f43f5e; /* rose-500 */
+            color: white;
+            font-weight: bold;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s ease-in-out;
+            min-width: 2.5rem;
+            text-align: center;
+            margin-left: 0.5rem; /* 與姓名間距 */
+        }
+        .delete-btn:hover {
+            background-color: #e11d48; /* rose-600 */
+        }
+
+        /* 訊息框文字放大 */
+        .message-large-text {
+            font-size: 2.5rem; /* 放大2.5倍 */
+            font-weight: bolder;
+            color: #1a202c;
+            line-height: 1.2;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+        }
+
+        /* 訊息框圖示樣式 */
+        .message-icon {
+            font-size: 5rem; /* 圖示大小 */
+            margin-bottom: 1rem;
+            animation: pulse 1s infinite alternate; /* 脈衝動畫 */
+        }
+
+        /* 操作紀錄列表樣式 */
+        #operationLogList {
+            height: 64vh;
+            max-height: 64vh;
+            overflow-y: auto;
+            border: 1px solid #cbd5e1; /* slate-300 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background-color: #ffffff;
+        }
+        #operationLogList > p { /* 針對沒有紀錄時的提示文字 */
+            font-size: 1rem;
+            color: #64748b; /* slate-500 */
+        }
+
+        /* 快速功能浮動視窗樣式 */
+        #quickAccessWindow {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 255, 255, 0.9); /* 半透明白色背景 */
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000; /* 確保在最上層 */
+            display: flex;
+            flex-direction: column; /* 預設垂直排列 */
+            gap: 8px; /* 按鈕間距 */
+            border: 1px solid #e2e8f0; /* 淺灰色邊框 */
+            cursor: grab; /* 增加拖曳手勢 */
+            transition: width 0.3s ease-in-out, height 0.3s ease-in-out, padding 0.3s ease-in-out; /* 添加過渡效果 */
+        }
+
+        /* 浮動視窗按鈕容器 - 垂直排列 (一列) */
+        #qaButtonsContainer {
+            display: flex;
+            flex-direction: column; /* 垂直排列 */
+            gap: 8px; /* 按鈕間距 */
+            /* 移除 flex-wrap 和 justify-content，因為它們不適用於單列 */
+        }
+
+        /* 快速功能按鈕樣式 */
+        .quick-access-btn {
+            background-color: #3b82f6; /* 藍色 */
+            color: white;
+            font-weight: bold;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 0.9rem; /* 稍微小一點的字體 */
+            text-align: center;
+            width: 80px; /* 固定寬度 */
+        }
+
+        .quick-access-btn:hover {
+            background-color: #2563eb; /* 深藍色 */
+            transform: translateY(-1px);
+        }
+
+        .quick-access-btn.green {
+            background-color: #22c55e; /* 綠色 */
+        }
+        .quick-access-btn.green:hover {
+            background-color: #16a34a; /* 深綠色 */
+        }
+
+        .quick-access-btn.red {
+            background-color: #ef4444; /* 紅色 */
+        }
+        .quick-access-btn.red:hover {
+            background-color: #dc2626; /* 深紅色 */
+        }
+
+        /* 響應式調整：在小螢幕上調整浮動視窗位置 */
+        @media (max-width: 640px) {
+            #quickAccessWindow {
+                top: 10px;
+                left: 10px;
+                padding: 8px;
+                gap: 6px;
+            }
+            .quick-access-btn {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+                width: 70px;
+            }
+        }
+
+        /* 碎花動畫容器 */
+        .confetti-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none; /* 讓點擊穿透 */
+            z-index: 10; /* 確保在最上層 */
+        }
+
+        /* 碎花樣式 */
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: var(--confetti-color);
+            opacity: 0;
+            animation: fall var(--duration) forwards;
+            border-radius: 2px;
+        }
+
+        /* 碎花動畫 */
+        @keyframes fall {
+            0% {
+                transform: translate(var(--start-x), var(--start-y)) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--end-x), var(--end-y)) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* 浮動視窗收縮狀態 */
+        #quickAccessWindow.collapsed-window {
+            width: 50px; /* 小方塊寬度 */
+            height: 50px; /* 小方塊高度 */
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* 隱藏超出部分 */
+            border-radius: 50%; /* 變成圓形 */
+            background-color: rgba(60, 179, 113, 0.9); /* 醫藥綠色 */
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            flex-direction: row; /* 收縮時為一行，因為只有一個按鈕 */
+        }
+
+        #quickAccessWindow.collapsed-window #qaButtonsContainer {
+            display: none; /* 隱藏所有按鈕 */
+        }
+
+        #quickAccessWindow.collapsed-window #qaToggleBtn {
+            width: 100%;
+            height: 100%;
+            background-color: transparent; /* 讓父級背景色透出 */
+            color: white;
+            font-size: 1.5rem;
+            box-shadow: none;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 隱藏按鈕容器 */
+        #qaButtonsContainer.hidden {
+            display: none;
+        }
+
+        /* 加扣分文字特效 */
+        .score-effect-text {
+            position: absolute;
+            font-size: 1.8rem; /* 放大文字 */
+            font-weight: bold;
+            opacity: 0;
+            animation: score-text-fade-out 3s ease-out forwards; /* 動畫持續 3 秒 */
+            z-index: 20; /* 確保在碎花上方 */
+            pointer-events: none; /* 讓點擊穿透 */
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5); /* 增加陰影 */
+        }
+
+        .score-effect-text.add {
+            color: #3b82f6; /* 藍色，配合加分按鈕顏色 */
+        }
+
+        .score-effect-text.minus {
+            color: #ff0000; /* 紅色 */
+        }
+
+        @keyframes score-text-fade-out {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-20px) scale(1.2); /* 向上移動並放大 */
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex items-center justify-center min-h-screen">
+
+    <!-- 快速功能浮動視窗 -->
+    <div id="quickAccessWindow">
+        <div id="qaButtonsContainer">
+            <button id="qaDrawOneBtn" class="quick-access-btn">抽1</button>
+            <button id="qaDrawTwoBtn" class="quick-access-btn">抽2</button>
+            <button id="qaDrawThreeBtn" class="quick-access-btn">抽3</button>
+            <button id="qaDrawAddBtn" class="quick-access-btn green">抽加</button>
+            <button id="qaFullAddBtn" class="quick-access-btn green">全加</button>
+            <button id="qaFullMinusBtn" class="quick-access-btn red">全扣</button>
+            <button id="qaUndoBtn" class="quick-access-btn">回復</button> <!-- 新增回復按鈕 -->
+        </div>
+        <button id="qaToggleBtn" class="quick-access-btn toggle-btn">合</button> <!-- 新增合/展按鈕 -->
+    </div>
+
+    <div class="bg-white rounded-xl shadow-2xl p-6 sm:p-10 w-full lg:w-11/12 xl:w-10/12 2xl:w-9/12 border border-gray-200">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-center text-blue-700 mb-8">學生抽籤系統</h1>
+
+        <!-- 學生名單輸入區 (頁籤化) -->
+        <div class="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner border border-blue-200">
+            <!-- 頁籤導航 -->
+            <div class="flex border-b border-blue-300 mb-6 flex-wrap">
+                <button id="manualInputTab" class="tab-button active">手動輸入名單</button>
+                <button id="seatNumberTab" class="tab-button">快速載入座號</button>
+                <button id="computerLoadTab" class="tab-button">電腦載入名單</button> <!-- 新增頁籤按鈕 -->
+                <button id="scoreTableTab" class="tab-button">名單加扣分表</button>
+                <button id="rankingBoardTab" class="tab-button">排行榜</button>
+                <button id="operationLogTab" class="tab-button">操作紀錄</button> <!-- 新增操作紀錄頁籤 -->
+                <button id="undoBtn"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-75 text-sm ml-2">
+                    回復
+                </button>
+            </div>
+
+            <!-- 頁籤內容：手動輸入名單 -->
+            <div id="manualInputContent" class="tab-content">
+                <label for="studentNames" class="block text-lg font-semibold text-blue-800 mb-3">
+                    請輸入學生名單 (每行一位學生姓名):
+                </label>
+                <textarea id="studentNames" rows="8"
+                                  class="w-full p-4 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800 text-base scrollbar-visible"
+                                  placeholder="例如：&#10;王小明&#10;陳大華&#10;林美玲&#10;張志強"></textarea>
+                <button id="loadNamesBtn"
+                        class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+                    載入學生名單
+                </button>
+            </div>
+
+            <!-- 頁籤內容：快速載入座號 -->
+            <div id="seatNumberContent" class="tab-content hidden">
+                <label for="totalStudents" class="block text-lg font-semibold text-blue-800 mb-3">
+                    請輸入總學生人數 (例如: 35):
+                </label>
+                <input type="number" id="totalStudents" min="1" value="35"
+                       class="w-full p-3 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800">
+                <button id="generateSeatNumbersBtn"
+                        class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+                    載入座號名單 (1號 ~ 35號)
+                </button>
+            </div>
+
+            <!-- 頁籤內容：電腦載入名單 -->
+            <div id="computerLoadContent" class="tab-content hidden">
+                <h3 class="text-lg font-semibold text-blue-800 mb-3">從 CSV 檔案載入學生名單:</h3>
+                <button id="downloadBlankCSVBtn"
+                        class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-75 mb-4">
+                    下載空白 CSV 格式
+                </button>
+
+                <label for="csvFileInput" class="block text-lg font-semibold text-blue-800 mb-3">
+                    上傳學生資料 CSV 檔案:
+                </label>
+                <input type="file" id="csvFileInput" accept=".csv"
+                       class="w-full p-3 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800 mb-4">
+                <button id="importCSVBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 mb-6">
+                    匯入 CSV 檔案
+                </button>
+
+                <div id="classSelectionArea" class="hidden mt-6 p-4 bg-gray-100 rounded-lg border border-gray-200">
+                    <label for="classSelect" class="block text-lg font-semibold text-blue-800 mb-3">
+                        選擇要載入的班級:
+                    </label>
+                    <select id="classSelect"
+                                 class="w-full p-3 border border-blue-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800 mb-4">
+                        <option value="">-- 請選擇班級 --</option>
+                    </select>
+                    <button id="loadSelectedClassBtn"
+                                 class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                        載入選定班級名單
+                    </button>
+                </div>
+            </div>
+
+            <!-- 頁籤內容：名單加扣分表 -->
+            <div id="scoreTableContent" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-semibold text-blue-800 flex-shrink-0">學生分數列表:</h3>
+                    <!-- 最新抽出名單顯示區域 -->
+                    <span id="lastDrawnStudentsDisplay" class="ml-4"></span>
+                    <!-- 新增的全加/全扣按鈕和修改後的匯出按鈕 -->
+                    <div class="flex gap-2 ml-auto">
+                        <button id="fullAddBtn"
+                                class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-opacity-75 text-sm flex-shrink-0">
+                            全加
+                        </button>
+                        <button id="drawAddBtn"
+                                class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 text-sm flex-shrink-0">
+                            抽加
+                        </button>
+                        <button id="fullMinusBtn"
+                                class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 text-sm flex-shrink-0">
+                            全扣
+                        </button>
+                        <button id="exportScoresBtn"
+                                class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75 text-sm flex-shrink-0">
+                            匯出
+                        </button>
+                    </div>
+                </div>
+                <div id="studentScoreList" class="scrollbar-visible border border-blue-300 rounded-lg p-3 bg-white shadow-inner">
+                    <p class="col-span-4 text-gray-500 text-center py-4">請先載入學生名單以生成分數表。</p>
+                </div>
+            </div>
+
+            <!-- 頁籤內容：排行榜 -->
+            <div id="rankingBoardContent" class="tab-content hidden">
+                <h3 class="text-lg font-semibold text-blue-800 mb-3">學生分數排行榜:</h3>
+                <div id="rankingBoardList" class="scrollbar-visible border border-blue-300 rounded-lg p-3 bg-white shadow-inner">
+                    <p class="col-span-full text-gray-500 text-center py-4">請先載入學生名單以生成排行榜。</p>
+                </div>
+            </div>
+
+            <!-- 頁籤內容：操作紀錄 -->
+            <div id="operationLogContent" class="tab-content hidden">
+                <h3 class="text-lg font-semibold text-blue-800 mb-3">操作紀錄:</h3>
+                <div id="operationLogList">
+                    <p class="text-gray-500 text-center py-4">目前沒有操作紀錄。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 抽籤操作區 -->
+        <div class="mb-8 p-6 bg-green-50 rounded-lg shadow-inner border border-green-200">
+            <p class="text-lg font-semibold text-green-800 mb-4 text-center">選擇抽出人數:</p>
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button id="drawOneBtn"
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                    抽出 1 位
+                </button>
+                <button id="drawTwoBtn"
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                    抽出 2 位
+                </button>
+                <button id="drawThreeBtn"
+                        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                    抽出 3 位
+                </button>
+            </div>
+        </div>
+
+        <!-- 學生顯示區 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 可抽學生區 -->
+            <div class="bg-indigo-50 rounded-xl shadow-lg p-6 border border-indigo-200">
+                <h2 class="text-xl sm:text-2xl font-bold text-indigo-800 mb-4 text-center">可抽學生 (<span id="availableCount">0</span> 位)</h2>
+                <div id="availableStudentsList"
+                     class="h-64 overflow-y-auto scrollbar-visible grid grid-cols-2 gap-2 border border-indigo-300 rounded-lg p-3 bg-white shadow-inner">
+                    <!-- 學生姓名將在此處動態載入 -->
+                    <p class="col-span-2 text-gray-500 text-center py-4">請先載入學生名單</p>
+                </div>
+            </div>
+
+            <!-- 已抽出學生區 -->
+            <div class="bg-purple-50 rounded-xl shadow-lg p-6 border border-purple-200">
+                <h2 class="text-xl sm:text-2xl font-bold text-purple-800 mb-4 text-center">已抽出學生 (<span id="drawnCount">0</span> 位)</h2>
+                <div id="drawnStudentsList"
+                     class="h-64 overflow-y-auto scrollbar-visible grid grid-cols-2 gap-2 border border-purple-300 rounded-lg p-3 bg-white shadow-inner">
+                    <!-- 抽出的學生姓名將在此處動態載入 -->
+                    <p class="col-span-2 text-gray-500 text-center py-4">尚未抽出學生</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部操作區 (重新開始/重置按鈕) -->
+        <div class="mt-8 p-6 bg-gray-100 rounded-lg shadow-inner border border-gray-200 flex flex-col sm:flex-row justify-center items-center gap-4">
+            <button id="restartBtn"
+                    class="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-75">
+                重新開始本輪抽籤
+            </button>
+            <button id="resetBtn"
+                    class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 text-sm">
+                重置所有名單 (重新輸入)
+            </button>
+        </div>
+
+        <!-- 訊息提示框 -->
+        <div id="messageBox" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl text-center border border-gray-300">
+                <!-- 調整 messageText 以容納更大的字體和多個名字 -->
+                <div id="messageContent" class="text-lg font-semibold text-gray-800 mb-6"></div>
+                <button id="closeMessageBox"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+                    確定
+                </button>
+            </div>
+        </div>
+
+        <!-- 年級/班級選擇彈出視窗 -->
+        <div id="exportOptionsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center border border-gray-300">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">選擇匯出選項</h2>
+
+                <div class="mb-4">
+                    <label for="gradeSelect" class="block text-lg font-semibold text-gray-700 mb-2">年級:</label>
+                    <select id="gradeSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800">
+                        <option value="">-- 請選擇年級 --</option>
+                        <option value="1">1年級</option>
+                        <option value="2">2年級</option>
+                        <option value="3">3年級</option>
+                        <option value="4">4年級</option>
+                        <option value="5">5年級</option>
+                        <option value="6">6年級</option>
+                    </select>
+                </div>
+
+                <div class="mb-6">
+                    <label for="classSelectExport" class="block text-lg font-semibold text-gray-700 mb-2">班級:</label>
+                    <select id="classSelectExport" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-200 ease-in-out text-gray-800">
+                        <option value="">-- 請選擇班級 --</option>
+                        <option value="01">1班</option>
+                        <option value="02">2班</option>
+                        <option value="03">3班</option>
+                        <option value="04">4班</option>
+                        <option value="05">5班</option>
+                        <option value="06">6班</option>
+                        <option value="07">7班</option>
+                        <option value="08">8班</option>
+                        <option value="09">9班</option>
+                        <option value="10">10班</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-center gap-4">
+                    <button id="confirmExportBtn"
+                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">
+                        確定匯出
+                    </button>
+                    <button id="cancelExportBtn"
+                            class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-5 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-opacity-75">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 學生名單陣列
+        let initialStudents = []; // 用於儲存最初載入的學生名單 (包含分數)
+        let availableStudents = []; // 抽籤時使用的名單 (包含分數)
+        let drawnStudents = []; // 已抽出名單 (包含分數)
+        let lastDrawnStudentNames = []; // 用於儲存最新抽出的學生姓名，供「抽加」按鈕使用
+        let operationLog = []; // 用於儲存操作紀錄
+
+        // 新增：用於儲存可復原的狀態歷史
+        let undoStack = []; 
+        // 新增：用於儲存可重做的狀態歷史 (當執行 undo 時，將當前狀態推入此堆疊)
+        let redoStack = []; 
+        const MAX_UNDO_REDO_STEPS = 10; // 最多保留 10 步復原/重做歷史
+
+        let spinningInterval; // 用於儲存動畫的 interval ID
+        let importedClassData = {}; // 用於儲存從 CSV 匯入的班級資料 { "班級名稱": [{name: "姓名", seat: "座號"}, ...] }
+
+        // 新增：追蹤最後被加分/扣分的學生及操作類型
+        // type: null | 'single-add' | 'single-minus' | 'full-add' | 'full-minus' | 'draw-add'
+        // names: 針對單獨加減或抽加，儲存受影響的學生姓名陣列
+        let highlightState = { type: null, names: [] };
+
+
+        // 獲取 DOM 元素
+        const studentNamesTextarea = document.getElementById('studentNames');
+        const loadNamesBtn = document.getElementById('loadNamesBtn');
+        const totalStudentsInput = document.getElementById('totalStudents');
+        const generateSeatNumbersBtn = document.getElementById('generateSeatNumbersBtn');
+
+        const manualInputTab = document.getElementById('manualInputTab');
+        const seatNumberTab = document.getElementById('seatNumberTab');
+        const computerLoadTab = document.getElementById('computerLoadTab');
+        const scoreTableTab = document.getElementById('scoreTableTab');
+        const rankingBoardTab = document.getElementById('rankingBoardTab');
+        const operationLogTab = document.getElementById('operationLogTab');
+        const undoBtn = document.getElementById('undoBtn'); // 回復按鈕
+
+        const manualInputContent = document.getElementById('manualInputContent');
+        const seatNumberContent = document.getElementById('seatNumberContent');
+        const computerLoadContent = document.getElementById('computerLoadContent');
+        const downloadBlankCSVBtn = document.getElementById('downloadBlankCSVBtn');
+        const csvFileInput = document.getElementById('csvFileInput');
+        const importCSVBtn = document.getElementById('importCSVBtn');
+        const classSelectionArea = document.getElementById('classSelectionArea');
+        const classSelect = document.getElementById('classSelect');
+        const loadSelectedClassBtn = document.getElementById('loadSelectedClassBtn');
+
+        const scoreTableContent = document.getElementById('scoreTableContent');
+        const studentScoreList = document.getElementById('studentScoreList');
+        const exportScoresBtn = document.getElementById('exportScoresBtn');
+        const rankingBoardContent = document.getElementById('rankingBoardContent');
+        const rankingBoardList = document.getElementById('rankingBoardList');
+        const operationLogContent = document.getElementById('operationLogContent');
+        const operationLogList = document.getElementById('operationLogList');
+        const lastDrawnStudentsDisplay = document.getElementById('lastDrawnStudentsDisplay');
+
+        const fullAddBtn = document.getElementById('fullAddBtn');
+        const drawAddBtn = document.getElementById('drawAddBtn');
+        const fullMinusBtn = document.getElementById('fullMinusBtn');
+
+        const drawOneBtn = document.getElementById('drawOneBtn');
+        const drawTwoBtn = document.getElementById('drawTwoBtn');
+        const drawThreeBtn = document.getElementById('drawThreeBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const availableStudentsList = document.getElementById('availableStudentsList');
+        const drawnStudentsList = document.getElementById('drawnStudentsList');
+        const availableCountSpan = document.getElementById('availableCount');
+        const drawnCountSpan = document.getElementById('drawnCount');
+        const messageBox = document.getElementById('messageBox');
+        const messageContent = document.getElementById('messageContent');
+        const closeMessageBoxBtn = document.getElementById('closeMessageBox');
+
+        const exportOptionsModal = document.getElementById('exportOptionsModal');
+        const gradeSelect = document.getElementById('gradeSelect');
+        const classSelectExport = document.getElementById('classSelectExport');
+        const confirmExportBtn = document.getElementById('confirmExportBtn');
+        const cancelExportBtn = document.getElementById('cancelExportBtn');
+
+        // 快速功能按鈕的 DOM 引用
+        const quickAccessWindow = document.getElementById('quickAccessWindow'); // 獲取快速功能視窗本身
+        const qaButtonsContainer = document.getElementById('qaButtonsContainer'); // 新增的按鈕容器
+        const qaDrawOneBtn = document.getElementById('qaDrawOneBtn');
+        const qaDrawTwoBtn = document.getElementById('qaDrawTwoBtn');
+        const qaDrawThreeBtn = document.getElementById('qaDrawThreeBtn');
+        const qaDrawAddBtn = document.getElementById('qaDrawAddBtn');
+        const qaFullAddBtn = document.getElementById('qaFullAddBtn');
+        const qaFullMinusBtn = document.getElementById('qaFullMinusBtn');
+        const qaUndoBtn = document.getElementById('qaUndoBtn'); // 新增的回復按鈕
+        const qaToggleBtn = document.getElementById('qaToggleBtn'); // 新增的合/展按鈕
+
+
+        // --- 核心更新函數定義 (確保在其他函數調用前定義) ---
+
+        // 更新操作紀錄顯示的函數
+        function updateOperationLogDisplay() {
+            operationLogList.innerHTML = '';
+            if (operationLog.length === 0) {
+                operationLogList.innerHTML = '<p class="text-gray-500 text-center py-4">目前沒有操作紀錄。</p>';
+                return;
+            }
+            operationLog.forEach(log => {
+                const logItem = document.createElement('div');
+                logItem.className = 'bg-gray-50 p-3 rounded-md shadow-sm mb-2 text-sm flex justify-between items-center';
+                logItem.innerHTML = `
+                    <span class="text-gray-700">${log.action}</span>
+                    <span class="text-gray-500 text-xs">${log.timestamp}</span>
+                `;
+                operationLogList.appendChild(logItem);
+            });
+        }
+
+        // 根據分數獲取背景顏色 (用於 4/5 區域的漸變)
+        function getScoreBackgroundColor(score) {
+            const maxAbsScore = 10; // 定義分數影響顏色的最大絕對值範圍
+            const clampedScore = Math.max(-maxAbsScore, Math.min(score, maxAbsScore));
+
+            const hue_blue = 200; // 藍色色相
+            const hue_green = 120; // 綠色色相
+            const hue_red = 0;    // 紅色色相
+
+            const lightness_start = 90; // 0分時的亮度 (比之前稍深，但仍淺)
+            const lightness_end = 60;  // 最大分數時的亮度 (更深，變化幅度更大)
+            const saturation = 90;     // 飽和度 (增加飽和度，顏色更鮮豔)
+
+            let currentHue;
+            let currentLightness;
+
+            if (clampedScore === 0) {
+                currentHue = hue_blue;
+                currentLightness = lightness_start;
+            } else if (clampedScore > 0) {
+                const ratio = clampedScore / maxAbsScore; // 0到1的比例
+                currentHue = hue_blue - ((hue_blue - hue_green) * ratio);
+                currentLightness = lightness_start - ((lightness_start - lightness_end) * ratio);
+            } else { // clampedScore < 0
+                const ratio = Math.abs(clampedScore) / maxAbsScore; // 0到1的比例
+                currentHue = hue_blue + ((hue_red - hue_blue) * ratio); // 從藍色向紅色漸變
+                currentLightness = lightness_start - ((lightness_start - lightness_end) * ratio);
+            }
+            return `hsl(${currentHue}, ${saturation}%, ${currentLightness}%)`;
+        }
+
+        // 碎花動畫函數
+        function triggerConfetti(targetElement, count = 30) {
+            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722', '#795548', '#9E9E9E', '#607D8B'];
+            const container = document.createElement('div');
+            container.className = 'confetti-container';
+            targetElement.appendChild(container);
+
+            for (let i = 0; i < count; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                const startX = Math.random() * 100 - 50 + '%'; // -50% to 50% from center
+                const startY = Math.random() * 100 - 50 + '%'; // -50% to 50% from center
+                const endX = Math.random() * 200 - 100 + 'px'; // -100px to 100px horizontal drift
+                const endY = '150%'; // Fall far below
+                const duration = 1.5 + Math.random() * 1.5 + 's'; // 1.5s to 3s
+
+                confetti.style.setProperty('--confetti-color', color);
+                confetti.style.setProperty('--start-x', startX);
+                confetti.style.setProperty('--start-y', startY);
+                confetti.style.setProperty('--end-x', endX);
+                confetti.style.setProperty('--end-y', endY);
+                confetti.style.setProperty('--duration', duration);
+                confetti.style.left = '50%'; // Start from center of target
+                confetti.style.top = '50%'; // Start from center of target
+                confetti.style.animationDelay = (Math.random() * 0.5) + 's'; // Stagger animation
+
+                container.appendChild(confetti);
+            }
+
+            // 碎花動畫結束後移除容器
+            setTimeout(() => {
+                container.remove();
+            }, 3000); // 碎花動畫持續 3 秒
+        }
+
+
+        // 更新名單加扣分表顯示
+        function updateScoreTable() {
+            studentScoreList.innerHTML = '';
+            if (initialStudents.length === 0) {
+                studentScoreList.innerHTML = '<p class="col-span-4 text-gray-500 text-center py-4">請先載入學生名單以生成分數表。</p>';
+                return;
+            }
+
+            const defaultHighlightColor = 'hsl(200, 90%, 95%)'; // 預設的右側顏色 (淡藍色)
+
+            initialStudents.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'score-list-item';
+                // 設定 4/5 區域的背景色
+                studentDiv.style.backgroundColor = getScoreBackgroundColor(student.score);
+
+                studentDiv.innerHTML = `
+                    <div class="student-content">
+                        <div class="student-info">
+                            <span>${student.name} (<span class="score-value">${student.score}</span>分)</span>
+                        </div>
+                        <div class="score-buttons">
+                            <button class="score-btn" data-name="${student.name}" data-amount="1">+1</button>
+                            <button class="score-btn minus" data-name="${student.name}" data-amount="-1">-1</button>
+                        </div>
+                    </div>
+                    <div class="score-highlight-bar" data-name="${student.name}" style="background-color: ${defaultHighlightColor};"></div>
+                `;
+                studentScoreList.appendChild(studentDiv);
+            });
+
+            // 渲染完成後，應用高亮效果
+            applyHighlightsToScoreTable();
+        }
+
+        // 應用高亮效果到分數表中的特定學生
+        function applyHighlightsToScoreTable() {
+            // 清除所有之前的動畫和高亮類別
+            document.querySelectorAll('.score-highlight-bar').forEach(bar => {
+                bar.style.animation = 'none'; // 停止任何正在運行的動畫
+                // 觸發重繪以確保動畫停止立即生效
+                // eslint-disable-next-line no-unused-expressions
+                bar.offsetHeight; 
+                bar.classList.remove('highlight-add', 'highlight-minus');
+                bar.style.backgroundColor = 'hsl(200, 90%, 95%)'; // 重置為預設淡藍色
+                
+                // 移除所有分數特效文字
+                const existingEffectText = bar.querySelector('.score-effect-text');
+                if (existingEffectText) {
+                    existingEffectText.remove();
+                }
+            });
+
+            if (highlightState.type === 'full-add') {
+                document.querySelectorAll('.score-highlight-bar').forEach(bar => {
+                    bar.classList.add('highlight-add');
+                    addScoreEffectText(bar, '+1', 'add');
+                });
+            } else if (highlightState.type === 'full-minus') {
+                document.querySelectorAll('.score-highlight-bar').forEach(bar => {
+                    bar.classList.add('highlight-minus');
+                    addScoreEffectText(bar, '-1', 'minus');
+                });
+            } else if (highlightState.type === 'single-add' || highlightState.type === 'draw-add') {
+                highlightState.names.forEach(name => {
+                    const bar = document.querySelector(`.score-highlight-bar[data-name="${name}"]`);
+                    if (bar) {
+                        bar.classList.add('highlight-add');
+                        addScoreEffectText(bar, '+1', 'add');
+                    }
+                });
+            } else if (highlightState.type === 'single-minus') {
+                highlightState.names.forEach(name => {
+                    const bar = document.querySelector(`.score-highlight-bar[data-name="${name}"]`);
+                    if (bar) {
+                        bar.classList.add('highlight-minus');
+                        addScoreEffectText(bar, '-1', 'minus');
+                    }
+                });
+            }
+        }
+
+        // 新增加扣分文字特效
+        function addScoreEffectText(targetBar, text, type) {
+            const effectText = document.createElement('span');
+            effectText.className = `score-effect-text ${type}`;
+            effectText.textContent = text;
+            targetBar.appendChild(effectText);
+
+            // 動畫結束後移除文字
+            effectText.addEventListener('animationend', () => {
+                effectText.remove();
+            });
+        }
+
+        // 更新排行榜顯示
+        function updateRankingBoard() {
+            rankingBoardList.innerHTML = '';
+            if (initialStudents.length === 0) {
+                rankingBoardList.innerHTML = '<p class="col-span-full text-gray-500 text-center py-4">請先載入學生名單以生成排行榜。</p>';
+                return;
+            }
+
+            const sortedStudents = [...initialStudents].sort((a, b) => b.score - a.score);
+
+            sortedStudents.forEach((student, index) => {
+                const rankingDiv = document.createElement('div');
+                let rankClass = '';
+                if (index === 0) rankClass = 'top-1';
+                else if (index === 1) rankClass = 'top-2';
+                else if (index === 2) rankClass = 'top-3';
+
+                rankingDiv.className = `ranking-list-item ${rankClass}`;
+                rankingDiv.innerHTML = `
+                    <span class="rank">${index + 1}.</span>
+                    <span class="student-name">${student.name}</span>
+                    <span class="student-score">${student.score}分</span>
+                `;
+                rankingBoardList.appendChild(rankingDiv);
+            });
+        }
+
+        // 更新學生列表顯示 (抽籤系統中的可抽/已抽名單)
+        function updateStudentLists() {
+            availableStudentsList.innerHTML = '';
+            if (availableStudents.length === 0) {
+                availableStudentsList.innerHTML = '<p class="col-span-2 text-gray-500 text-center py-4">沒有可抽取的學生了！</p>';
+            } else {
+                availableStudents.forEach(student => {
+                    const studentDiv = document.createElement('div');
+                    studentDiv.className = 'p-2 my-1 bg-indigo-100 rounded-md text-indigo-900 font-medium shadow-sm flex items-center justify-between';
+                    studentDiv.innerHTML = `
+                        <span>${student.name}</span>
+                        <button class="delete-btn" data-name="${student.name}">刪</button>
+                    `;
+                    availableStudentsList.appendChild(studentDiv);
+                });
+            }
+            availableCountSpan.textContent = availableStudents.length;
+
+            drawnStudentsList.innerHTML = '';
+            if (drawnStudents.length === 0) {
+                drawnStudentsList.innerHTML = '<p class="col-span-2 text-gray-500 text-center py-4">尚未抽出學生</p>';
+            } else {
+                drawnStudents.forEach(student => {
+                    const studentDiv = document.createElement('div');
+                    studentDiv.className = 'p-2 my-1 bg-purple-100 rounded-md text-purple-900 font-medium shadow-sm flex items-center justify-between';
+                    studentDiv.innerHTML = `
+                        <span>${student.name}</span>
+                        <button class="return-btn" data-name="${student.name}">返</button>
+                    `;
+                    drawnStudentsList.appendChild(studentDiv);
+                });
+            }
+            drawnCountSpan.textContent = drawnStudents.length;
+        }
+
+
+        // --- 其他函數定義 ---
+
+        // 頁籤切換功能
+        function switchTab(activeTabId) {
+            // 移除所有頁籤的 active 狀態
+            manualInputTab.classList.remove('active');
+            seatNumberTab.classList.remove('active');
+            computerLoadTab.classList.remove('active');
+            scoreTableTab.classList.remove('active');
+            rankingBoardTab.classList.remove('active');
+            operationLogTab.classList.remove('active');
+
+            // 隱藏所有頁籤內容
+            manualInputContent.classList.add('hidden');
+            seatNumberContent.classList.add('hidden');
+            computerLoadContent.classList.add('hidden');
+            scoreTableContent.classList.add('hidden');
+            rankingBoardContent.classList.add('hidden');
+            operationLogContent.classList.add('hidden');
+
+            // 根據點擊的頁籤 ID 顯示對應內容並添加 active 狀態
+            if (activeTabId === 'manualInputTab') {
+                manualInputTab.classList.add('active');
+                manualInputContent.classList.remove('hidden');
+            } else if (activeTabId === 'seatNumberTab') {
+                seatNumberTab.classList.add('active');
+                seatNumberContent.classList.remove('hidden');
+            } else if (activeTabId === 'computerLoadTab') {
+                computerLoadTab.classList.add('active');
+                computerLoadContent.classList.remove('hidden');
+            } else if (activeTabId === 'scoreTableTab') {
+                scoreTableTab.classList.add('active');
+                scoreTableContent.classList.remove('hidden');
+                updateScoreTable(); // 切換到分數表時更新顯示
+            } else if (activeTabId === 'rankingBoardTab') {
+                rankingBoardTab.classList.add('active');
+                rankingBoardContent.classList.remove('hidden');
+                updateRankingBoard(); // 切換到排行榜時更新顯示
+            } else if (activeTabId === 'operationLogTab') {
+                operationLogTab.classList.add('active');
+                operationLogContent.classList.remove('hidden');
+                updateOperationLogDisplay(); // 切換到操作紀錄時更新顯示
+            }
+        }
+
+        // 綁定頁籤點擊事件
+        manualInputTab.addEventListener('click', () => switchTab('manualInputTab'));
+        seatNumberTab.addEventListener('click', () => switchTab('seatNumberTab'));
+        computerLoadTab.addEventListener('click', () => switchTab('computerLoadTab'));
+        scoreTableTab.addEventListener('click', () => switchTab('scoreTableTab'));
+        rankingBoardTab.addEventListener('click', () => switchTab('rankingBoardTab'));
+        operationLogTab.addEventListener('click', () => switchTab('operationLogTab'));
+
+        // 儲存當前應用程式狀態的函數 (深拷貝)
+        function saveCurrentState() {
+            // 將當前狀態推入 undoStack
+            undoStack.push({
+                initialStudents: JSON.parse(JSON.stringify(initialStudents)),
+                availableStudents: JSON.parse(JSON.stringify(availableStudents)),
+                drawnStudents: JSON.parse(JSON.stringify(drawnStudents)),
+                lastDrawnStudentNames: JSON.parse(JSON.stringify(lastDrawnStudentNames)),
+                highlightState: JSON.parse(JSON.stringify(highlightState)) // 保存高亮狀態
+            });
+
+            // 限制 undoStack 的大小
+            if (undoStack.length > MAX_UNDO_REDO_STEPS) {
+                undoStack.shift(); // 移除最舊的狀態
+            }
+            redoStack = []; // 任何新操作都會清空 redoStack
+        }
+
+        // 恢復應用程式狀態的函數
+        function restoreState(stateToRestore) {
+            initialStudents = JSON.parse(JSON.stringify(stateToRestore.initialStudents));
+            availableStudents = JSON.parse(JSON.stringify(stateToRestore.availableStudents));
+            drawnStudents = JSON.parse(JSON.stringify(stateToRestore.drawnStudents));
+            lastDrawnStudentNames = JSON.parse(JSON.stringify(stateToRestore.lastDrawnStudentNames));
+            highlightState = JSON.parse(JSON.stringify(stateToRestore.highlightState)); // 恢復高亮狀態
+        }
+
+        // 記錄操作的函數
+        function addLogEntry(action) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+            const timestamp = `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+            operationLog.unshift({ action: action, timestamp: timestamp }); // 添加到陣列開頭，最新紀錄在最上面
+
+            // 保持紀錄數量在合理範圍，例如只保留最新的 100 筆
+            if (operationLog.length > 100) {
+                operationLog.pop();
+            }
+            // 不需要在此處呼叫 updateOperationLogDisplay，因為切換頁籤時會呼叫
+        }
+
+        // 通用函數：執行操作、儲存狀態並記錄
+        function performAndLogAction(actionDescription, stateModifierFunction, showMessageAfter = true, messageType = 'general', messageText = '') {
+            saveCurrentState(); // 在執行操作前儲存當前狀態
+            stateModifierFunction(); // 執行實際的狀態修改
+            
+            updateStudentLists();
+            updateScoreTable(); // 這會渲染元素並應用分數底色
+            updateRankingBoard();
+            updateOperationLogDisplay(); // 確保操作紀錄即時更新
+            lastDrawnStudentsDisplay.textContent = `最新抽出：${lastDrawnStudentNames.join('、')}`;
+            if (lastDrawnStudentNames.length === 0) {
+                lastDrawnStudentsDisplay.textContent = '';
+            }
+            addLogEntry(actionDescription); // 記錄操作
+
+            if (showMessageAfter) {
+                showMessage(messageText || actionDescription, false, [], 1, messageType);
+            }
+
+            // 清除高亮狀態並重新渲染表格
+            if (highlightState.type !== null) {
+                setTimeout(() => {
+                    highlightState = { type: null, names: [] };
+                    // 重新應用高亮，這會重置動畫並將顏色恢復為預設
+                    applyHighlightsToScoreTable(); 
+                }, 20000); // 總共 20 秒後清除高亮狀態
+            }
+        }
+
+
+        // 載入名單的通用函數 (僅修改狀態，不直接顯示訊息或記錄)
+        function loadStudentDataStateModifier(namesArray) {
+            initialStudents = namesArray.map(name => ({ name: name, score: 0 }));
+            availableStudents = namesArray.map(name => ({ name: name, score: 0 }));
+            drawnStudents = [];
+            lastDrawnStudentNames = [];
+            highlightState = { type: null, names: [] }; // 重置高亮狀態
+        }
+
+        // 載入學生名單 (手動輸入)
+        loadNamesBtn.addEventListener('click', () => {
+            const namesInput = studentNamesTextarea.value.trim();
+            if (namesInput) {
+                const loadedNames = namesInput.split('\n').map(name => name.trim()).filter(name => name !== '');
+                if (loadedNames.length > 0) {
+                    performAndLogAction('載入學生名單 (手動輸入)', () => loadStudentDataStateModifier(loadedNames), true, 'general', '學生名單已成功載入！');
+                } else {
+                    showMessage('請輸入學生名單！');
+                }
+            } else {
+                showMessage('請輸入學生名單！');
+            }
+        });
+
+        // 載入座號名單
+        generateSeatNumbersBtn.addEventListener('click', () => {
+            const totalStudents = parseInt(totalStudentsInput.value, 10);
+            if (isNaN(totalStudents) || totalStudents <= 0) {
+                showMessage('請輸入有效的總學生人數 (大於 0 的數字)！');
+                return;
+            }
+            const seatNumbers = [];
+            for (let i = 1; i <= totalStudents; i++) {
+                seatNumbers.push(`${i}號`);
+            }
+            performAndLogAction(`載入座號名單 (${totalStudents} 位)`, () => loadStudentDataStateModifier(seatNumbers), true, 'general', '學生名單已成功載入！');
+        });
+
+        // 下載空白 CSV 格式
+        downloadBlankCSVBtn.addEventListener('click', () => {
+            const csvHeaders = "\uFEFF班級,座號,姓名\n";
+            const blob = new Blob([csvHeaders], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '空白學生名單格式.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage('空白 CSV 格式已下載。');
+            addLogEntry('下載空白 CSV 格式'); // 這個操作不改變狀態，所以直接記錄
+        });
+
+        // 匯入 CSV 檔案 
+        importCSVBtn.addEventListener('click', () => {
+            const file = csvFileInput.files[0];
+            if (!file) {
+                showMessage('請選擇一個 CSV 檔案！');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                parseCSV(text); // parseCSV 內部會調用 loadStudentDataStateModifier
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // 解析 CSV 內容
+        function parseCSV(csvText) {
+            importedClassData = {};
+            classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
+
+            const lines = csvText.trim().split('\n');
+            if (lines.length < 2) {
+                showMessage('CSV 檔案內容不足，請確保包含標頭和至少一行資料。');
+                classSelectionArea.classList.add('hidden');
+                return;
+            }
+
+            let headersLine = lines[0];
+            if (headersLine.charCodeAt(0) === 0xFEFF) {
+                headersLine = headersLine.substring(1);
+            }
+
+            const headers = headersLine.split(',').map(h => h.trim());
+            if (headers[0] !== '班級' || headers[1] !== '座號' || headers[2] !== '姓名') {
+                showMessage('CSV 標頭不正確，請確保是「班級,座號,姓名」的格式。');
+                classSelectionArea.classList.add('hidden');
+                return;
+            }
+
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',');
+                if (parts.length >= 3) {
+                    const className = parts[0].trim();
+                    const seatNumber = parts[1].trim();
+                    const studentName = parts[2].trim();
+
+                    if (className && studentName) {
+                        if (!importedClassData[className]) {
+                            importedClassData[className] = [];
+                        }
+                        importedClassData[className].push({ name: studentName, seat: seatNumber });
+                    }
+                }
+            }
+
+            const classNames = Object.keys(importedClassData).sort();
+            if (classNames.length === 0) {
+                showMessage('CSV 檔案中沒有找到有效的班級資料。');
+                classSelectionArea.classList.add('hidden');
+                return;
+            }
+
+            classNames.forEach(className => {
+                const option = document.createElement('option');
+                option.value = className;
+                option.textContent = `${className} (${importedClassData[className].length} 位學生)`;
+                classSelect.appendChild(option);
+            });
+
+            classSelectionArea.classList.remove('hidden');
+            showMessage('CSV 檔案匯入成功！請選擇要載入的班級。');
+            addLogEntry('匯入 CSV 檔案 (待選擇班級)'); // 記錄操作
+        }
+
+        // 載入選定班級名單
+        loadSelectedClassBtn.addEventListener('click', () => {
+            const selectedClass = classSelect.value;
+            if (!selectedClass) {
+                showMessage('請先選擇一個班級！');
+                return;
+            }
+
+            const studentsToLoad = importedClassData[selectedClass];
+            if (studentsToLoad && studentsToLoad.length > 0) {
+                const formattedNames = studentsToLoad.map(s => `${s.seat ? s.seat + '號' : ''}${s.name}`);
+                performAndLogAction(`電腦載入 ${selectedClass} 班`, () => loadStudentDataStateModifier(formattedNames), true, 'general', `已載入 ${selectedClass} 班的 ${studentsToLoad.length} 位學生名單！`);
+            } else {
+                showMessage('選擇的班級沒有學生資料。');
+            }
+        });
+
+
+        // 調整分數的函數 (只針對 initialStudents 中的學生)
+        function adjustScore(studentName, amount) {
+            const studentIndex = initialStudents.findIndex(student => student.name === studentName);
+            if (studentIndex !== -1) {
+                performAndLogAction(`手動調整 ${studentName} 分數: ${amount > 0 ? '+' : ''}${amount}`, () => {
+                    initialStudents[studentIndex].score += amount;
+                    const availableStudent = availableStudents.find(s => s.name === studentName);
+                    if (availableStudent) availableStudent.score = initialStudents[studentIndex].score;
+                    const drawnStudent = drawnStudents.find(s => s.name === studentName);
+                    if (drawnStudent) drawnStudent.score = initialStudents[studentIndex].score;
+                    
+                    // 設定高亮學生
+                    highlightState = { names: [studentName], type: amount > 0 ? 'single-add' : 'single-minus' };
+
+                    // 如果是加分，觸發碎花動畫
+                    if (amount > 0) {
+                        // 找到對應的學生項目元素，並在其上觸發碎花動畫
+                        // 這裡需要確保找到正確的 .score-list-item
+                        const studentDiv = document.querySelector(`.score-list-item .student-content .student-info span[data-name="${studentName}"]`)?.closest('.score-list-item');
+                        if (studentDiv) {
+                            triggerConfetti(studentDiv);
+                        }
+                    }
+
+                }, false); // 這個操作的訊息由 performAndLogAction 內部處理
+            }
+        }
+
+        // 全加功能：所有學生分數加 1
+        fullAddBtn.addEventListener('click', () => {
+            if (initialStudents.length === 0) {
+                showMessage('沒有學生名單可以操作！請先載入名單。');
+                return;
+            }
+            performAndLogAction('對所有學生進行全加', () => {
+                initialStudents.forEach(student => {
+                    student.score += 1;
+                });
+                availableStudents.forEach(student => {
+                    const initialStudent = initialStudents.find(s => s.name === student.name);
+                    if (initialStudent) student.score = initialStudent.score;
+                });
+                drawnStudents.forEach(student => {
+                    const initialStudent = initialStudents.find(s => s.name === student.name);
+                    if (initialStudent) student.score = initialStudent.score;
+                });
+                // 設定高亮狀態為全加
+                highlightState = { type: 'full-add', names: [] };
+
+                // 對所有學生觸發碎花動畫
+                document.querySelectorAll('.score-list-item').forEach(item => {
+                    triggerConfetti(item);
+                });
+
+            }, true, 'fullAdd', '所有學生分數已全部加 1！');
+        });
+
+        // 抽加功能：最新抽出的學生分數加 1
+        drawAddBtn.addEventListener('click', () => {
+            if (lastDrawnStudentNames.length === 0) {
+                showMessage('沒有最新抽出的學生可以加分！請先進行抽籤。');
+                return;
+            }
+
+            performAndLogAction(`對最新抽出學生 (${lastDrawnStudentNames.join('、')}) 進行抽加`, () => {
+                let studentsAffected = 0;
+                lastDrawnStudentNames.forEach(name => {
+                    const studentIndex = initialStudents.findIndex(student => student.name === name);
+                    if (studentIndex !== -1) {
+                        initialStudents[studentIndex].score += 1;
+                        const availableStudent = availableStudents.find(s => s.name === name);
+                        if (availableStudent) availableStudent.score = initialStudents[studentIndex].score;
+                        const drawnStudent = drawnStudents.find(s => s.name === name);
+                        if (drawnStudent) drawnStudent.score = initialStudents[studentIndex].score;
+                        studentsAffected++;
+
+                        // 觸發碎花動畫
+                        const studentDiv = document.querySelector(`.score-list-item .student-content .student-info span[data-name="${name}"]`)?.closest('.score-list-item');
+                        if (studentDiv) {
+                            triggerConfetti(studentDiv);
+                        }
+                    }
+                });
+                // 設定高亮狀態為抽加
+                highlightState = { type: 'draw-add', names: [...lastDrawnStudentNames] };
+                if (studentsAffected === 0) {
+                    showMessage('未能找到最新抽出的學生進行加分。');
+                    return;
+                }
+            }, true, 'drawAdd', `恭喜！已對最新抽出 ${lastDrawnStudentNames.join('、')} 加 1 分！`);
+        });
+
+
+        // 全扣功能：所有學生分數扣 1
+        fullMinusBtn.addEventListener('click', () => {
+            if (initialStudents.length === 0) {
+                showMessage('沒有學生名單可以操作！請先載入名單。');
+                return;
+            }
+            performAndLogAction('對所有學生進行全扣', () => {
+                initialStudents.forEach(student => {
+                    student.score -= 1;
+                });
+                availableStudents.forEach(student => {
+                    const initialStudent = initialStudents.find(s => s.name === student.name);
+                    if (initialStudent) student.score = initialStudent.score;
+                });
+                drawnStudents.forEach(student => {
+                    const initialStudent = initialStudents.find(s => s.name === student.name);
+                    if (initialStudent) student.score = initialStudent.score;
+                });
+                // 設定高亮狀態為全扣
+                highlightState = { type: 'full-minus', names: [] };
+            }, true, 'fullMinus', '所有學生分數已全部扣 1！');
+        });
+
+
+        // 匯出成績到 CSV 檔案的實際函數
+        function exportScoresToCSV(grade, classNum) {
+            if (initialStudents.length === 0) {
+                showMessage('沒有學生名單可以匯出！請先載入名單。');
+                return;
+            }
+
+            let csvContent = "\uFEFF姓名,分數\n";
+            initialStudents.forEach(student => {
+                csvContent += `"${student.name}",${student.score}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+
+            let filename = '';
+            if (grade && classNum) {
+                filename = `${grade}${classNum}抽籤加扣分系統_${year}${month}${day}${hours}${minutes}.csv`;
+            } else {
+                filename = `成績_${year}${month}${day}${hours}${minutes}.csv`;
+            }
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showMessage('成績已成功匯出為 CSV 檔案！');
+            addLogEntry('匯出成績資料');
+        }
+
+        // 綁定匯出成績按鈕事件，顯示選項彈出視窗
+        exportScoresBtn.addEventListener('click', () => {
+            if (initialStudents.length === 0) {
+                showMessage('沒有學生名單可以匯出！請先載入名單。');
+                return;
+            }
+            exportOptionsModal.classList.remove('hidden');
+        });
+
+        // 匯出選項彈出視窗的確定按鈕
+        confirmExportBtn.addEventListener('click', () => {
+            const selectedGrade = gradeSelect.value;
+            const selectedClass = classSelectExport.value;
+
+            if (!selectedGrade || !selectedClass) {
+                showMessage('請選擇年級和班級！');
+                return;
+            }
+
+            exportScoresToCSV(selectedGrade, selectedClass);
+            exportOptionsModal.classList.add('hidden');
+        });
+
+        // 匯出選項彈出視窗的取消按鈕
+        cancelExportBtn.addEventListener('click', () => {
+            exportOptionsModal.classList.add('hidden');
+        });
+
+
+        // 顯示訊息框
+        function showMessage(message, isResult = false, drawnNames = [], drawCount = 1, messageType = 'general') {
+            messageContent.innerHTML = '';
+            messageContent.classList.remove('drawn-result-container', 'spinning-names-flex-column');
+            messageContent.classList.remove('message-large-text');
+            closeMessageBoxBtn.classList.add('hidden');
+            messageBox.querySelector('div').classList.remove('spinning-background');
+
+            if (isResult) {
+                messageContent.classList.add('spinning-names-flex-column');
+                messageBox.classList.remove('hidden');
+                messageBox.querySelector('div').classList.add('spinning-background');
+
+                let spinCount = 0;
+                const totalSpins = 30;
+                const spinDuration = 2000;
+                const spinInterval = spinDuration / totalSpins;
+
+                messageContent.style.minHeight = '15rem';
+
+                spinningInterval = setInterval(() => {
+                    messageContent.innerHTML = '';
+                    for (let i = 0; i < drawCount; i++) {
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'spinning-text-item';
+                        const allStudents = [...initialStudents]; 
+                        if (allStudents.length > 0) {
+                            const randomIndex = Math.floor(Math.random() * allStudents.length);
+                            nameSpan.textContent = allStudents[randomIndex].name;
+                        } else {
+                            nameSpan.textContent = '準備中...';
+                        }
+                        messageContent.appendChild(nameSpan);
+                    }
+                    spinCount++;
+
+                    if (spinCount >= totalSpins) {
+                        clearInterval(spinningInterval);
+                        messageContent.classList.remove('spinning-names-flex-column');
+                        messageContent.innerHTML = '';
+                        messageContent.classList.add('drawn-result-container');
+                        messageContent.style.minHeight = 'auto';
+
+                        const congratsText = document.createElement('p');
+                        congratsText.className = 'text-xl sm:text-2xl font-semibold text-gray-700 mb-4';
+                        congratsText.textContent = '恭喜抽出：';
+                        messageContent.appendChild(congratsText);
+
+                        drawnNames.forEach(name => {
+                            const nameSpan = document.createElement('span');
+                            nameSpan.className = 'drawn-result-text';
+                            nameSpan.textContent = name;
+                            messageContent.appendChild(nameSpan);
+                        });
+                        closeMessageBoxBtn.classList.remove('hidden');
+                        messageBox.querySelector('div').classList.remove('spinning-background');
+
+                        lastDrawnStudentNames = [...drawnNames]; 
+                        lastDrawnStudentsDisplay.textContent = `最新抽出：${drawnNames.join('、')}`;
+                        addLogEntry(`抽出 ${drawnNames.length} 位學生: ${drawnNames.join('、')}`);
+                    }
+                }, spinInterval);
+
+            } else {
+                messageBox.classList.remove('hidden');
+                closeMessageBoxBtn.classList.remove('hidden');
+                messageContent.style.minHeight = 'auto';
+
+                if (messageType === 'fullAdd') {
+                    const icon = document.createElement('span');
+                    icon.className = 'message-icon';
+                    icon.innerHTML = '🎉✨🎊';
+                    messageContent.appendChild(icon);
+                    const msgText = document.createElement('p');
+                    msgText.className = 'message-large-text';
+                    msgText.textContent = message;
+                    messageContent.appendChild(msgText);
+                } else if (messageType === 'fullMinus') {
+                    const icon = document.createElement('span');
+                    icon.className = 'message-icon';
+                    icon.innerHTML = '💪😊';
+                    messageContent.appendChild(icon);
+                    const msgText = document.createElement('p');
+                    msgText.className = 'message-large-text';
+                    msgText.textContent = message;
+                    messageContent.appendChild(msgText);
+                } else if (messageType === 'drawAdd') {
+                    const icon = document.createElement('span');
+                    icon.className = 'message-icon';
+                    icon.innerHTML = '🎉恭喜！🎊';
+                    messageContent.appendChild(icon);
+                    const msgText = document.createElement('p');
+                    msgText.className = 'message-large-text';
+                    msgText.textContent = message;
+                    messageContent.appendChild(msgText);
+                } else if (messageType === 'undo') {
+                    const icon = document.createElement('span');
+                    icon.className = 'message-icon';
+                    icon.innerHTML = '↩️';
+                    messageContent.appendChild(icon);
+                    const msgText = document.createElement('p');
+                    msgText.className = 'message-large-text';
+                    msgText.textContent = message;
+                    messageContent.appendChild(msgText);
+                }
+                else {
+                    const regularText = document.createElement('p');
+                    regularText.className = 'text-lg font-semibold text-gray-800 mb-6';
+                    regularText.textContent = message;
+                    messageContent.appendChild(regularText);
+                }
+            }
+        }
+
+        // 隱藏訊息框
+        closeMessageBoxBtn.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+            if (spinningInterval) {
+                clearInterval(spinningInterval);
+            }
+            messageBox.querySelector('div').classList.remove('spinning-background');
+            messageContent.style.minHeight = 'auto';
+            messageContent.classList.remove('spinning-names-flex-column', 'message-large-text');
+            messageContent.innerHTML = '';
+        });
+
+        // 抽籤功能
+        function drawStudents(count) {
+            if (availableStudents.length === 0) {
+                showMessage('沒有可抽取的學生了！請載入名單或重置。');
+                return;
+            }
+
+            if (availableStudents.length < count) {
+                showMessage(`目前只剩下 ${availableStudents.length} 位學生，無法抽出 ${count} 位。`);
+                return;
+            }
+            
+            saveCurrentState(); // 在抽籤前儲存狀態
+
+            const drawnThisRound = [];
+            for (let i = 0; i < count; i++) {
+                const randomIndex = Math.floor(Math.random() * availableStudents.length);
+                const student = availableStudents[randomIndex];
+
+                drawnThisRound.push(student.name);
+                drawnStudents.push(student);
+
+                availableStudents.splice(randomIndex, 1);
+            }
+
+            updateStudentLists();
+            // 抽籤的訊息顯示和記錄在 showMessage 內部處理，因為有動畫延遲
+            showMessage('', true, drawnThisRound, count); 
+            highlightState = { type: null, names: [] }; // 抽籤後清除高亮
+        }
+
+        // 綁定抽籤按鈕事件
+        drawOneBtn.addEventListener('click', () => drawStudents(1));
+        drawTwoBtn.addEventListener('click', () => drawStudents(2));
+        drawThreeBtn.addEventListener('click', () => drawStudents(3));
+
+        // 重新開始本輪抽籤功能
+        restartBtn.addEventListener('click', () => {
+            if (initialStudents.length === 0) {
+                showMessage('請先載入學生名單才能重新開始。');
+                return;
+            }
+            performAndLogAction('重新開始本輪抽籤', () => {
+                availableStudents = initialStudents.map(student => ({ ...student }));
+                drawnStudents = [];
+                lastDrawnStudentNames = [];
+                highlightState = { type: null, names: [] }; // 重置高亮狀態
+            }, true, 'general', '本輪抽籤已重新開始，所有學生已歸位。');
+        });
+
+        // 重置所有名單
+        resetBtn.addEventListener('click', () => {
+            performAndLogAction('重置所有名單', () => {
+                initialStudents = [];
+                availableStudents = [];
+                drawnStudents = [];
+                lastDrawnStudentNames = [];
+                importedClassData = {};
+                classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
+                classSelectionArea.classList.add('hidden');
+                studentNamesTextarea.value = '';
+                totalStudentsInput.value = '35';
+                csvFileInput.value = '';
+                highlightState = { type: null, names: [] }; // 重置高亮狀態
+            }, true, 'general', '所有學生名單已重置，請重新載入。');
+        });
+
+        // 將學生從可抽名單中刪除
+        function deleteStudent(studentName) {
+            const studentIndex = availableStudents.findIndex(student => student.name === studentName);
+            if (studentIndex !== -1) {
+                performAndLogAction(`刪除學生: ${studentName}`, () => {
+                    availableStudents.splice(studentIndex, 1);
+                    const initialStudentIndex = initialStudents.findIndex(student => student.name === studentName);
+                    if (initialStudentIndex !== -1) {
+                        initialStudents.splice(initialStudentIndex, 1);
+                    }
+                    const lastDrawnIndex = lastDrawnStudentNames.indexOf(studentName);
+                    if (lastDrawnIndex !== -1) {
+                        lastDrawnStudentNames.splice(lastDrawnIndex, 1);
+                    }
+                    highlightState = { type: null, names: [] }; // 刪除後清除高亮
+                }, true, 'general', `${studentName} 已從可抽名單中刪除。`);
+            }
+        }
+
+        // 將學生從已抽出名單返回可抽名單
+        function returnStudent(studentName) {
+            const studentIndex = drawnStudents.findIndex(student => student.name === studentName);
+            if (studentIndex !== -1) {
+                performAndLogAction(`返還學生: ${studentName}`, () => {
+                    const studentToReturn = drawnStudents.splice(studentIndex, 1)[0];
+                    availableStudents.push(studentToReturn);
+                    highlightState = { type: null, names: [] }; // 返還後清除高亮
+                }, true, 'general', `${studentName} 已返回可抽名單。`);
+            }
+        }
+
+        // 透過事件委派處理分數按鈕點擊事件 (只在 scoreTableContent 內部監聽)
+        scoreTableContent.addEventListener('click', (event) => {
+            if (event.target.classList.contains('score-btn')) {
+                const studentName = event.target.dataset.name;
+                const amount = parseInt(event.target.dataset.amount, 10);
+                adjustScore(studentName, amount);
+            }
+        });
+
+        // 透過事件委派處理「返」按鈕點擊事件 (只在 drawnStudentsList 內部監聽)
+        drawnStudentsList.addEventListener('click', (event) => {
+            if (event.target.classList.contains('return-btn')) {
+                const studentName = event.target.dataset.name;
+                returnStudent(studentName);
+            }
+        });
+
+        // 透過事件委派處理「刪」按鈕點擊事件 (只在 availableStudentsList 內部監聽)
+        availableStudentsList.addEventListener('click', (event) => {
+            if (event.target.classList.contains('delete-btn')) {
+                const studentName = event.target.dataset.name;
+                deleteStudent(studentName);
+            }
+        });
+
+        // 回復按鈕功能
+        undoBtn.addEventListener('click', () => {
+            if (undoStack.length === 0) {
+                showMessage('沒有可回復的操作了！');
+                return;
+            }
+
+            const prevState = undoStack.pop(); // 從 undoStack 取出上一個狀態
+            redoStack.push({ // 將當前狀態推入 redoStack，以便重做
+                initialStudents: JSON.parse(JSON.stringify(initialStudents)),
+                availableStudents: JSON.parse(JSON.stringify(availableStudents)),
+                drawnStudents: JSON.parse(JSON.stringify(drawnStudents)),
+                lastDrawnStudentNames: JSON.parse(JSON.stringify(lastDrawnStudentNames)),
+                highlightState: JSON.parse(JSON.stringify(highlightState)) // 保存當前高亮狀態到 redoStack
+            });
+
+            restoreState(prevState); // 恢復到上一個狀態
+
+            updateStudentLists();
+            updateScoreTable();
+            updateRankingBoard();
+            // 更新最新抽出顯示，因為可能被回復了
+            lastDrawnStudentsDisplay.textContent = `最新抽出：${lastDrawnStudentNames.join('、')}`;
+            if (lastDrawnStudentNames.length === 0) {
+                lastDrawnStudentsDisplay.textContent = '';
+            }
+            addLogEntry('回復上一個操作'); // 記錄回復動作本身
+            updateOperationLogDisplay(); // 更新操作紀錄顯示
+            showMessage('已回復上一個操作！', false, [], 1, 'undo'); // 顯示回復訊息
+        });
+
+        // 綁定快速功能按鈕事件
+        qaDrawOneBtn.addEventListener('click', () => drawStudents(1));
+        qaDrawTwoBtn.addEventListener('click', () => drawStudents(2));
+        qaDrawThreeBtn.addEventListener('click', () => drawStudents(3));
+        qaDrawAddBtn.addEventListener('click', () => drawAddBtn.click()); // 觸發原有的抽加按鈕點擊事件
+        qaFullAddBtn.addEventListener('click', () => fullAddBtn.click()); // 觸發原有的全加按鈕點擊事件
+        qaFullMinusBtn.addEventListener('click', () => fullMinusBtn.click()); // 觸發原有的全扣按鈕點擊事件
+        qaUndoBtn.addEventListener('click', () => undoBtn.click()); // 綁定快速功能的回復按鈕
+
+        // 快速功能浮動視窗拖曳功能
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        quickAccessWindow.addEventListener('mousedown', (e) => {
+            // 檢查點擊的不是按鈕本身，而是視窗背景，才開始拖曳
+            // 這裡修正為只在點擊視窗非按鈕區域時才拖曳，避免點擊按鈕時也觸發拖曳
+            if (!e.target.classList.contains('quick-access-btn')) {
+                isDragging = true;
+                // 計算滑鼠在視窗內的偏移量
+                offsetX = e.clientX - quickAccessWindow.getBoundingClientRect().left;
+                offsetY = e.clientY - quickAccessWindow.getBoundingClientRect().top;
+
+                // 阻止文字選擇等預設行為
+                quickAccessWindow.style.cursor = 'grabbing';
+                e.preventDefault(); 
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            // 計算新的位置
+            let newLeft = e.clientX - offsetX;
+            let newTop = e.clientY - offsetY;
+
+            // 限制拖曳範圍在視窗內
+            const maxX = window.innerWidth - quickAccessWindow.offsetWidth;
+            const maxY = window.innerHeight - quickAccessWindow.offsetHeight;
+
+            newLeft = Math.max(0, Math.min(newLeft, maxX));
+            newTop = Math.max(0, Math.min(newTop, maxY));
+
+            quickAccessWindow.style.left = `${newLeft}px`;
+            quickAccessWindow.style.top = `${newTop}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            quickAccessWindow.style.cursor = 'grab'; // 恢復手勢
+        });
+
+        // 合/展按鈕功能
+        qaToggleBtn.addEventListener('click', () => {
+            if (qaButtonsContainer.classList.contains('hidden')) {
+                // 展開
+                qaButtonsContainer.classList.remove('hidden');
+                quickAccessWindow.classList.remove('collapsed-window');
+                qaToggleBtn.textContent = '合';
+                quickAccessWindow.style.flexDirection = 'column'; // 展開時恢復垂直排列
+            } else {
+                // 收縮
+                qaButtonsContainer.classList.add('hidden');
+                quickAccessWindow.classList.add('collapsed-window');
+                qaToggleBtn.textContent = '展';
+                quickAccessWindow.style.flexDirection = 'row'; // 收縮時變成一行
+            }
+        });
+
+
+        // 初始載入時更新列表顯示
+        updateStudentLists();
+        updateScoreTable();
+        updateRankingBoard();
+        updateOperationLogDisplay();
+    </script>
+</body>
+</html>
